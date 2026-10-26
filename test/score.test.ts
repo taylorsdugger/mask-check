@@ -149,6 +149,35 @@ describe("buildReport", () => {
     expect(report.viruses.find((v) => v.id === "flu")!.why).toBe("Wastewater is very low and rising. CDC's trend estimate says growing.");
   });
 
+  it("doesn't count a forecast rise while wastewater is very low", () => {
+    const flu = buildReport(data({ rt: [], forecasts: fc("flu", "17", 80, 120) }), "2026-10-26").viruses.find((v) => v.id === "flu")!;
+    expect(flu.level).toBe("Very Low");
+    expect(flu.threat).toBe("Low");
+    expect(flu.why).toBe(
+      "Wastewater is very low and not rising. Hospital admissions are forecast up 50%, but that doesn't count while wastewater is very low.",
+    );
+  });
+
+  it("only counts a plant's jump once it holds two weeks", () => {
+    const jump = (before: string) =>
+      data({
+        wastewater: [
+          ww("ID:482", "SARS-CoV-2", "2026-10-10", "5.0", before),
+          ww("ID:482", "SARS-CoV-2", "2026-10-17", "9.0", "High"),
+          ww("ID:2212", "SARS-CoV-2", "2026-10-17", "3.2", "Low"),
+        ],
+      });
+    const once = buildReport(jump("Very Low"), "2026-10-26").viruses.find((v) => v.id === "covid")!;
+    expect(once.level).toBe("Low");
+    expect(once.threat).toBe("Low");
+    expect(once.sites.find((s) => s.label.startsWith("Rock Island"))!.category).toBe("High");
+    expect(once.why).toBe("Wastewater is low and not rising. It jumped to high this week, but a jump only counts once it holds two weeks.");
+
+    const twice = buildReport(jump("High"), "2026-10-26").viruses.find((v) => v.id === "covid")!;
+    expect(twice.level).toBe("High");
+    expect(twice.threat).toBe("High");
+  });
+
   it("ignores a smaller forecast rise", () => {
     const covid = buildReport(data({ forecasts: fc("covid", "17", 80, 92) }), "2026-10-26").viruses.find((v) => v.id === "covid")!;
     expect(covid.threat).toBe("Low");

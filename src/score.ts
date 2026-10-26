@@ -172,9 +172,11 @@ function scoreVirus(
   stateNames: Map<string, string>,
 ): VirusReport {
   const rows = data.wastewater.filter((r) => r.pathogen_target === virus.wastewater && r.site_wval_category);
+  const held = holdTwoWeeks(rows);
 
   const levelWeek = rows.reduce<string | null>((max, r) => (!max || r.week_end > max ? r.week_end : max), null);
   const latest = rows.filter((r) => r.week_end === levelWeek);
+  const heldLatest = held.filter((r) => r.week_end === levelWeek);
   const sites = latest
     .map((r) => ({
       label: `${r.counties_served} #${r.site.replace("ID:", "")} · ${formatPeople(Number(r.population_served))}`,
@@ -182,19 +184,26 @@ function scoreVirus(
       category: r.site_wval_category!,
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
-  const levelRank = latest.length
-    ? aggregate === "highest"
-      ? Math.max(...latest.map((r) => LEVELS.indexOf(r.site_wval_category!)))
-      : typicalRank(latest)
-    : null;
+  const rankOf = (week: WastewaterRow[]) =>
+    !week.length
+      ? null
+      : aggregate === "highest"
+        ? Math.max(...week.map((r) => LEVELS.indexOf(r.site_wval_category!)))
+        : typicalRank(week);
+  const levelRank = rankOf(heldLatest);
+  const jumpRank = rankOf(latest);
   const level = levelRank === null ? null : LEVELS[levelRank];
 
-  const history = weeklyHistory(rows, aggregate);
+  const history = weeklyHistory(held, aggregate);
 
   const trend = pickTrend(data, virus.rt);
   const forecast = pickForecast(data.forecasts ?? [], virus.id, stateNames);
   const trendRising = trend !== null && TREND_RANK[trend.category] > 0;
-  const forecastRising = forecast !== null && forecast.change >= FORECAST_RISE;
+  const forecastUp = forecast !== null && forecast.change >= FORECAST_RISE;
+  // The COVID ensemble forecast a rise nearly every week of summer 2026 while
+  // wastewater sat at very low. So a forecast only counts once wastewater is
+  // above very low, or when there's no wastewater data to go on.
+  const forecastRising = forecastUp && levelRank !== 0;
   const cityEd = data.nyc?.ed[virus.id] ?? [];
   const cityEdTrend = direction(cityEd);
   const cityEdRising = cityEdTrend === "Increasing";
@@ -225,7 +234,15 @@ function scoreVirus(
     threat,
     advice: ADVICE[threat],
     reason: `${virus.name} ${levelText}, ${trendText}${forecastText}`,
-    why: explain(level, caution === "cautious" && levelRank === 1, risingBecause),
+    why: [
+      explain(level, caution === "cautious" && levelRank === 1, risingBecause),
+      jumpRank !== null && levelRank !== null && jumpRank > levelRank &&
+        `It jumped to ${LEVELS[jumpRank].toLowerCase()} this week, but a jump only counts once it holds two weeks.`,
+      forecastUp && !forecastRising &&
+        `Hospital admissions are forecast up ${Math.round(forecast!.change * 100)}%, but that doesn't count while wastewater is very low.`,
+    ]
+      .filter(Boolean)
+      .join(" "),
     level,
     levelWeek,
     sites,
@@ -262,6 +279,21 @@ function shareOfPeak(points: WeekValue[]): { week: string; pct: number }[] {
   const peak = Math.max(...points.slice(-52).map((p) => p.value));
   if (!(peak > 0)) return [];
   return points.slice(-10).map((p) => ({ week: p.week, pct: Math.round((p.value / peak) * 100) }));
+}
+
+// A plant's level only counts once it holds two reports in a row, since the
+// small plants often jump a level or two for one week and drop right back.
+// Each week takes the lower of that week and the plant's previous report,
+// looking back two weeks in case it skipped one.
+export function holdTwoWeeks(rows: WastewaterRow[]): WastewaterRow[] {
+  const rank = new Map(rows.map((r) => [`${r.site} ${r.week_end}`, LEVELS.indexOf(r.site_wval_category!)]));
+  return rows.map((r) => {
+    const before =
+      rank.get(`${r.site} ${daysBefore(r.week_end, 7)}`) ?? rank.get(`${r.site} ${daysBefore(r.week_end, 14)}`);
+    return before === undefined || before >= rank.get(`${r.site} ${r.week_end}`)!
+      ? r
+      : { ...r, site_wval_category: LEVELS[before] };
+  });
 }
 
 export function threatIndex(levelRank: number | null, growing: boolean): number {
