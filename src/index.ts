@@ -20,7 +20,7 @@ interface LastSent {
 
 // Bump when the Report shape changes, so a stored report from the old shape
 // is never served to the new dashboard.
-const REPORT_KEY = "report-v3";
+const REPORT_KEY = "report-v4";
 
 const today = () => new Date().toISOString().slice(0, 10);
 

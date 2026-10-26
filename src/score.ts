@@ -49,10 +49,11 @@ export interface VirusReport {
   threat: Threat;
   advice: string;
   reason: string;
+  why: string;
   level: string | null;
   levelWeek: string | null;
   sites: SiteLevel[];
-  history: { week: string; wval: number }[];
+  history: { week: string; wval: number; category: string }[];
   trend: string | null;
   trendArea: string | null;
   trendWeek: string | null;
@@ -64,7 +65,9 @@ export interface AreaReport {
   id: string;
   name: string;
   note?: string;
+  aggregate: Area["level"];
   threat: Threat;
+  advice: string;
   viruses: VirusReport[];
 }
 
@@ -143,7 +146,7 @@ function scoreArea(area: Area, data: CdcData, caution: string): AreaReport {
   };
   const viruses = VIRUSES.map((virus) => scoreVirus(virus, areaData, area.level, caution, stateNames));
   const threat = THREATS[Math.max(...viruses.map((v) => THREATS.indexOf(v.threat)))];
-  return { id: area.id, name: area.name, note: area.note, threat, viruses };
+  return { id: area.id, name: area.name, note: area.note, aggregate: area.level, threat, advice: ADVICE[threat], viruses };
 }
 
 function scoreVirus(
@@ -159,7 +162,7 @@ function scoreVirus(
   const latest = rows.filter((r) => r.week_end === levelWeek);
   const sites = latest
     .map((r) => ({
-      label: `${r.counties_served} · ${formatPeople(Number(r.population_served))}`,
+      label: `${r.counties_served} #${r.site.replace("ID:", "")} · ${formatPeople(Number(r.population_served))}`,
       wval: r.site_wval ? Number(r.site_wval) : null,
       category: r.site_wval_category!,
     }))
@@ -175,7 +178,9 @@ function scoreVirus(
 
   const trend = pickTrend(data, virus.rt);
   const forecast = pickForecast(data.forecasts ?? [], virus.id, stateNames);
-  const growing = (trend !== null && TREND_RANK[trend.category] > 0) || (forecast !== null && forecast.change >= FORECAST_RISE);
+  const trendRising = trend !== null && TREND_RANK[trend.category] > 0;
+  const forecastRising = forecast !== null && forecast.change >= FORECAST_RISE;
+  const growing = trendRising || forecastRising;
 
   const effectiveRank = caution === "cautious" && levelRank === 1 ? 2 : levelRank;
   const threat = THREATS[threatIndex(effectiveRank, growing)];
@@ -195,6 +200,7 @@ function scoreVirus(
     threat,
     advice: ADVICE[threat],
     reason: `${virus.name} ${levelText}, ${trendText}${forecastText}`,
+    why: explain(level, caution === "cautious" && levelRank === 1, trendRising ? trend : null, forecastRising ? forecast : null),
     level,
     levelWeek,
     sites,
@@ -206,6 +212,26 @@ function scoreVirus(
     edTrends,
   };
 }
+
+function explain(
+  level: string | null,
+  cautionBump: boolean,
+  risingTrend: { category: string } | null,
+  risingForecast: Forecast | null,
+): string {
+  const levelPart = level ? `Wastewater is ${level.toLowerCase()}` : "There's no wastewater data";
+  const bump = cautionBump ? " (cautious mode counts that as moderate)" : "";
+  const reasons = [
+    risingTrend && `CDC's trend estimate says ${risingTrend.category.toLowerCase()}`,
+    risingForecast &&
+      `hospital admissions are forecast up ${Math.round(risingForecast.change * 100)}% by ${shortDate(risingForecast.endDate)}`,
+  ].filter(Boolean);
+  return reasons.length ? `${levelPart}${bump} and rising. ${capitalize(reasons.join(", and "))}.` : `${levelPart}${bump} and not rising.`;
+}
+
+const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);
+const shortDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export function threatIndex(levelRank: number | null, growing: boolean): number {
   if (levelRank !== null && levelRank >= 3) return 3;
@@ -229,12 +255,13 @@ export function typicalRank(rows: WastewaterRow[]): number {
 }
 
 function weeklyHistory(rows: WastewaterRow[], aggregate: Area["level"]) {
-  const byWeek = new Map<string, { max: number; weighted: number; people: number }>();
+  const byWeek = new Map<string, { max: number; weighted: number; people: number; rows: WastewaterRow[] }>();
   for (const r of rows) {
     const wval = Number(r.site_wval);
     if (!Number.isFinite(wval)) continue;
     const people = Number(r.population_served) || 1;
-    const week = byWeek.get(r.week_end) ?? { max: 0, weighted: 0, people: 0 };
+    const week = byWeek.get(r.week_end) ?? { max: 0, weighted: 0, people: 0, rows: [] };
+    week.rows.push(r);
     week.max = Math.max(week.max, wval);
     week.weighted += wval * people;
     week.people += people;
@@ -244,6 +271,12 @@ function weeklyHistory(rows: WastewaterRow[], aggregate: Area["level"]) {
     .map(([week, w]) => ({
       week,
       wval: aggregate === "highest" ? w.max : Math.round((w.weighted / w.people) * 100) / 100,
+      category:
+        LEVELS[
+          aggregate === "highest"
+            ? Math.max(...w.rows.map((r) => LEVELS.indexOf(r.site_wval_category!)))
+            : typicalRank(w.rows)
+        ],
     }))
     .slice(-10);
 }

@@ -104,7 +104,33 @@
   .area-list li:first-child { border-top: 0; }
   .area-list .sub { color: var(--muted); font-size: 12px; }
   .area-list .status { font-size: 14px; flex: none; }
-  .note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  .note { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+  .card .why { font-size: 14px; margin: -6px 0 12px; }
+  details.area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  details.area[open] { background: transparent; border-color: transparent; padding: 16px 0; }
+  details.area summary { list-style: none; cursor: pointer; display: grid; gap: 4px; }
+  details.area summary::-webkit-details-marker { display: none; }
+  details.area[open] summary { margin-bottom: 12px; }
+  .area-head { display: flex; justify-content: space-between; align-items: center; }
+  .area-name { font-size: 17px; font-weight: 650; }
+  .area-advice { color: var(--ink-2); font-size: 14px; }
+  .area-viruses { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
+  .area-viruses .pair { white-space: nowrap; }
+  .area-viruses .status { font-weight: 500; margin-left: 4px; }
+  .area-viruses .status .dot { width: 10px; height: 10px; }
+  .area-more { color: var(--series); font-size: 13px; }
+  details.area[open] .area-more { display: none; }
+  .key { margin-top: 20px; }
+  .key td { white-space: normal; vertical-align: top; padding: 6px 8px 6px 0; }
+  .key td:first-child { white-space: nowrap; }
+  .key .rule { color: var(--muted); font-size: 12px; }
+  .key .why { color: var(--ink-2); font-size: 13px; margin: 12px 0 0; }
   footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
   footer a { color: var(--ink-2); }
   .loading { color: var(--muted); }
@@ -117,7 +143,17 @@
   <section class="grid" id="viruses"></section>
   <h2 class="section-title">Other places</h2>
   <p class="section-sub">Places I travel to. Bigger cities can also be an early sign of what's coming here.</p>
-  <section class="grid" id="areas"></section>
+  <section id="areas"></section>
+  <section class="card key" id="key">
+    <h2>What the levels mean</h2>
+    <table>
+      <tr><td><span class="status"><span class="dot" style="background:var(--good)" aria-hidden="true"></span>Low</span></td><td>No mask needed.<div class="rule">Wastewater is low and not rising.</div></td></tr>
+      <tr><td><span class="status"><span class="dot" style="background:var(--warning)" aria-hidden="true"></span>Watch</span></td><td>No mask needed yet, but keep one on you.<div class="rule">Wastewater is low but rising.</div></td></tr>
+      <tr><td><span class="status"><span class="dot" style="background:var(--serious)" aria-hidden="true"></span>Elevated</span></td><td>Mask in crowded indoor places this week.<div class="rule">Wastewater is moderate and not rising.</div></td></tr>
+      <tr><td><span class="status"><span class="dot" style="background:var(--critical)" aria-hidden="true"></span>High</span></td><td>Mask indoors in public this week.<div class="rule">Wastewater is moderate and rising, or high.</div></td></tr>
+    </table>
+    <p class="why">Wastewater level is CDC's scale (very low to very high) for how much virus is in the sewage compared with each plant's own baseline. Rising means CDC's trend estimate says growing or likely growing, or CDC's forecast has state hospital admissions up 20% or more three weeks out.</p>
+  </section>
   <footer>
     <p>Risk combines the CDC wastewater viral activity level (at home, the highest of the four local plants; elsewhere, the level most people are at) with the CDC epidemic trend estimate for the local health service area. It also counts as rising when CDC's ensemble forecast has state hospital admissions up 20% or more three weeks out. All of it updates once a week. Mercer County has no plant of its own, so it leans on Rock Island and Davenport.</p>
     <p>Sources: <a href="https://www.cdc.gov/nwss/rv/index.html">CDC wastewater</a>, <a href="https://www.cdc.gov/cfa-modeling-and-forecasting/rt-estimates/index.html">CDC Rt estimates</a>, <a href="https://www.cdc.gov/covid/php/surveillance/index.html">CDC ED visits</a>, <a href="https://www.cdc.gov/cfa-modeling-and-forecasting/covid19-data-vis/index.html">CDC forecasts</a>. Not medical advice.</p>
@@ -137,9 +173,9 @@
       ? `${pct(f.change)[0].toUpperCase()}${pct(f.change).slice(1)} by ${fmtWeek(f.endDate)} <span style="color:var(--muted)">(${esc(f.state)} hospital admissions, ${f.from} → ${f.to} a week)</span>`
       : "No forecast";
 
-  function chart(history) {
+  function chart(history, title) {
     if (history.length < 2) return "";
-    const w = 260, h = 110, pad = { t: 8, r: 8, b: 20, l: 28 };
+    const w = 260, h = 110, pad = { t: 14, r: 8, b: 20, l: 28 };
     const max = Math.max(4, ...history.map((p) => p.wval));
     const x = (i) => pad.l + (i * (w - pad.l - pad.r)) / (history.length - 1);
     const y = (v) => h - pad.b - (v / max) * (h - pad.t - pad.b);
@@ -148,14 +184,15 @@
     const last = history[history.length - 1];
     return `
       <div class="chart">
-        <p class="chart-title">Wastewater level, highest local plant, last ${history.length} weeks</p>
-        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Weekly wastewater level">
+        <p class="chart-title">${esc(title)}, last ${history.length} weeks</p>
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(title)}">
           ${ticks.map((t) => `<line x1="${pad.l}" x2="${w - pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>
             <text x="${pad.l - 6}" y="${y(t) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${t}</text>`).join("")}
           <text x="${pad.l}" y="${h - 4}" font-size="10" fill="var(--muted)">${fmtWeek(history[0].week)}</text>
           <text x="${w - pad.r}" y="${h - 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmtWeek(last.week)}</text>
           <path d="${path}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
           <circle cx="${x(history.length - 1)}" cy="${y(last.wval)}" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>
+          <text x="${x(history.length - 1) - 8}" y="${y(last.wval) - 8}" text-anchor="end" font-size="10" fill="var(--ink-2)">${esc(last.category)}</text>
           <line class="cross" y1="${pad.t}" y2="${h - pad.b}" stroke="var(--axis)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"/>
           <circle class="hover" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2" style="display:none"/>
           <rect class="hit" x="${pad.l}" y="0" width="${w - pad.l - pad.r}" height="${h}" fill="transparent"/>
@@ -165,10 +202,10 @@
   }
 
   function wireChart(el, history) {
-    const svg = el.querySelector("svg");
+    const svg = el?.querySelector("svg");
     if (!svg) return;
     const tip = el.querySelector(".tip"), cross = svg.querySelector(".cross"), dot = svg.querySelector(".hover");
-    const w = 260, h = 110, pad = { t: 8, r: 8, b: 20, l: 28 };
+    const w = 260, h = 110, pad = { t: 14, r: 8, b: 20, l: 28 };
     const max = Math.max(4, ...history.map((p) => p.wval));
     const x = (i) => pad.l + (i * (w - pad.l - pad.r)) / (history.length - 1);
     const y = (v) => h - pad.b - (v / max) * (h - pad.t - pad.b);
@@ -179,7 +216,7 @@
       const p = history[i];
       cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.style.display = "";
       dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.wval)); dot.style.display = "";
-      tip.innerHTML = `Week of ${fmtWeek(p.week)}: <strong>${p.wval.toFixed(1)}</strong>`;
+      tip.innerHTML = `Week of ${fmtWeek(p.week)}: <strong>${p.wval.toFixed(1)}</strong> (${esc(p.category)})`;
       tip.style.left = `${(x(i) / w) * box.width}px`;
       tip.style.top = `${(y(p.wval) / h) * box.height + 18}px`;
       tip.style.display = "block";
@@ -187,45 +224,55 @@
     svg.addEventListener("pointerleave", () => { tip.style.display = cross.style.display = dot.style.display = "none"; });
   }
 
+  const CHART_TITLE = {
+    highest: "Wastewater level, highest local plant",
+    typical: "Wastewater level, average across plants weighted by people served",
+  };
+
+  function virusCard(v, prefix, aggregate, showEr) {
+    return `
+      <article class="card" id="card-${prefix}-${v.id}">
+        <h2>${esc(v.name)} ${status(v.threat)}</h2>
+        <p class="advice">${esc(v.advice)}</p>
+        <p class="why">${esc(v.why)}</p>
+        <dl>
+          <dt>Wastewater</dt><dd>${esc(v.level ?? "No data")}${v.levelWeek ? ` <span style="color:var(--muted)">(week of ${fmtWeek(v.levelWeek)})</span>` : ""}</dd>
+          <dt>Trend</dt><dd>${esc(v.trend ?? "Unknown")}${v.trendArea ? ` <span style="color:var(--muted)">(${esc(v.trendArea)})</span>` : ""}</dd>
+          <dt>Forecast</dt><dd>${forecastText(v.forecast)}</dd>
+          ${showEr ? `<dt>ER visits</dt><dd>${v.edTrends.length ? v.edTrends.map((t) => esc(t.trend)).join(", ") : "No data"}</dd>` : ""}
+        </dl>
+        ${chart(v.history, CHART_TITLE[aggregate])}
+        <table>
+          <tr><th>Plant</th><th>Level</th><th class="num">Value</th></tr>
+          ${v.sites.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.category)}</td><td class="num">${s.wval ?? "–"}</td></tr>`).join("")}
+        </table>
+      </article>`;
+  }
+
   function render(r) {
     document.getElementById("hero").innerHTML = `
       ${status(r.threat)}
       <p class="advice">${esc(r.advice)}</p>
       <p class="reason">${esc(r.viruses.map((v) => v.reason).join(" · "))}</p>
+      <p class="reason"><a href="#key">What do the levels mean?</a></p>
       ${r.headsUp.length ? `<div class="warnings">Heads up: ${r.headsUp.map(esc).join("<br>")}</div>` : ""}
       ${r.warnings.length ? `<div class="warnings">${r.warnings.map(esc).join("<br>")}</div>` : ""}`;
 
-    document.getElementById("areas").innerHTML = r.areas.map((a) => `
-      <article class="card">
-        <h2>${esc(a.name)} ${status(a.threat)}</h2>
-        ${a.note ? `<p class="note">${esc(a.note)}</p>` : ""}
-        <ul class="area-list">
-          ${a.viruses.map((v) => `
-            <li>
-              <div>${esc(v.name)}<div class="sub">Wastewater ${esc((v.level ?? "no data").toLowerCase())} · ${esc((v.trend ?? "trend unknown").toLowerCase())}${v.forecast ? ` · forecast ${pct(v.forecast.change)}` : ""}</div></div>
-              ${status(v.threat)}
-            </li>`).join("")}
-        </ul>
-      </article>`).join("");
+    document.getElementById("viruses").innerHTML = r.viruses.map((v) => virusCard(v, "home", "highest", true)).join("");
+    for (const v of r.viruses) wireChart(document.getElementById(`card-home-${v.id}`), v.history);
 
-    const grid = document.getElementById("viruses");
-    grid.innerHTML = r.viruses.map((v) => `
-      <article class="card" id="card-${v.id}">
-        <h2>${esc(v.name)} ${status(v.threat)}</h2>
-        <p class="advice">${esc(v.advice)}</p>
-        <dl>
-          <dt>Wastewater</dt><dd>${esc(v.level ?? "No data")}${v.levelWeek ? ` <span style="color:var(--muted)">(week of ${fmtWeek(v.levelWeek)})</span>` : ""}</dd>
-          <dt>Trend</dt><dd>${esc(v.trend ?? "Unknown")}${v.trendArea ? ` <span style="color:var(--muted)">(${esc(v.trendArea)})</span>` : ""}</dd>
-          <dt>Forecast</dt><dd>${forecastText(v.forecast)}</dd>
-          <dt>ER visits</dt><dd>${v.edTrends.length ? v.edTrends.map((t) => esc(t.trend)).join(", ") : "No data"}</dd>
-        </dl>
-        ${chart(v.history)}
-        <table>
-          <tr><th>Plant</th><th>Level</th><th class="num">Value</th></tr>
-          ${v.sites.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.category)}</td><td class="num">${s.wval ?? "–"}</td></tr>`).join("")}
-        </table>
-      </article>`).join("");
-    for (const v of r.viruses) wireChart(document.getElementById(`card-${v.id}`), v.history);
+    document.getElementById("areas").innerHTML = r.areas.map((a) => `
+      <details class="area">
+        <summary>
+          <span class="area-head"><span class="area-name">${esc(a.name)}</span> ${status(a.threat)}</span>
+          <span class="area-advice">${esc(a.advice)}</span>
+          <span class="area-viruses">${a.viruses.map((v) => `<span class="pair">${esc(v.name)} ${status(v.threat)}</span>`).join("")}</span>
+          <span class="area-more">Show charts and details</span>
+        </summary>
+        ${a.note ? `<p class="note">${esc(a.note)}</p>` : ""}
+        <div class="grid">${a.viruses.map((v) => virusCard(v, a.id, a.aggregate, false)).join("")}</div>
+      </details>`).join("");
+    for (const a of r.areas) for (const v of a.viruses) wireChart(document.getElementById(`card-${a.id}-${v.id}`), v.history);
 
     document.getElementById("generated").textContent = `Pulled from CDC ${new Date(r.generatedAt).toLocaleString()}.${r.caution === "cautious" ? " Cautious mode is on." : ""}`;
   }

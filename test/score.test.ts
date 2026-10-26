@@ -84,8 +84,8 @@ describe("buildReport", () => {
     expect(covid.levelWeek).toBe("2026-10-17");
     expect(covid.sites).toHaveLength(2);
     expect(covid.history).toEqual([
-      { week: "2026-10-10", wval: 2.8 },
-      { week: "2026-10-17", wval: 3.2 },
+      { week: "2026-10-10", wval: 2.8, category: "Low" },
+      { week: "2026-10-17", wval: 3.2, category: "Low" },
     ]);
   });
 
@@ -109,7 +109,7 @@ describe("buildReport", () => {
     expect(rsv.level).toBe("Moderate");
     expect(rsv.trendArea).toBe("Cook (Chicago), IL - DuPage, IL");
     expect(rsv.threat).toBe("Elevated");
-    expect(report.viruses.find((v) => v.id === "rsv")!.sites.map((s) => s.label)).toEqual(["Rock Island · 25k people"]);
+    expect(report.viruses.find((v) => v.id === "rsv")!.sites.map((s) => s.label)).toEqual(["Rock Island #482 · 25k people"]);
   });
 
   it("calls out a virus that's worse in another area", () => {
@@ -123,6 +123,13 @@ describe("buildReport", () => {
     expect(covid.forecast).toMatchObject({ state: "Illinois", from: 80, to: 104, endDate: "2026-11-14" });
     expect(covid.threat).toBe("Watch");
     expect(covid.reason).toBe("COVID wastewater low, not changing, forecast up 30%");
+    expect(covid.why).toBe("Wastewater is low and rising. Hospital admissions are forecast up 30% by Nov 14.");
+  });
+
+  it("explains a rating in plain words", () => {
+    const report = buildReport(data(), "2026-10-26");
+    expect(report.viruses.find((v) => v.id === "covid")!.why).toBe("Wastewater is low and not rising.");
+    expect(report.viruses.find((v) => v.id === "flu")!.why).toBe("Wastewater is very low and rising. CDC's trend estimate says growing.");
   });
 
   it("ignores a smaller forecast rise", () => {
