@@ -158,7 +158,7 @@ describe("buildReport", () => {
     );
   });
 
-  it("only counts a plant's jump once it holds two weeks", () => {
+  it("only counts a plant's jump once a second week agrees", () => {
     const jump = (before: string) =>
       data({
         wastewater: [
@@ -171,11 +171,26 @@ describe("buildReport", () => {
     expect(once.level).toBe("Low");
     expect(once.threat).toBe("Low");
     expect(once.sites.find((s) => s.label.startsWith("Rock Island"))!.category).toBe("High");
-    expect(once.why).toBe("Wastewater is low and not rising. It jumped to high this week, but a jump only counts once it holds two weeks.");
+    expect(once.why).toBe("Wastewater is low and not rising. This week alone reads high, but one week only counts once another week agrees.");
 
     const twice = buildReport(jump("High"), "2026-10-26").viruses.find((v) => v.id === "covid")!;
     expect(twice.level).toBe("High");
     expect(twice.threat).toBe("High");
+  });
+
+  it("doesn't let a one-week dip pull a plant down", () => {
+    const covid = buildReport(
+      data({
+        wastewater: [
+          ww("ID:482", "SARS-CoV-2", "2026-10-03", "9.0", "High"),
+          ww("ID:482", "SARS-CoV-2", "2026-10-10", "1.0", "Very Low"),
+          ww("ID:482", "SARS-CoV-2", "2026-10-17", "9.5", "High"),
+        ],
+      }),
+      "2026-10-26",
+    ).viruses.find((v) => v.id === "covid")!;
+    expect(covid.level).toBe("High");
+    expect(covid.history.map((h) => h.category)).toEqual(["High", "Very Low", "High"]);
   });
 
   it("ignores a smaller forecast rise", () => {

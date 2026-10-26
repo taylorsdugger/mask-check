@@ -127,7 +127,7 @@ export function emailHtml(report: Report, dashboardUrl?: string): string {
   <table style="border-collapse:collapse;width:100%;font-size:13px">
     ${KEY.map(([t, text]) => `<tr><td style="padding:4px 12px 4px 0;color:${COLORS[t]};font-weight:600;white-space:nowrap">${t}</td><td style="padding:4px 0">${text}</td></tr>`).join("")}
   </table>
-  <p style="color:#666;font-size:12px;margin-top:24px">CDC wastewater viral activity level and epidemic trend (Rt) estimates. A plant's level counts once it holds two weeks in a row. A virus also counts as rising when CDC's ensemble forecast has state hospital admissions up 20% or more three weeks out, unless wastewater is very low. It also counts as rising in New York City when NYC Health's ER visits are up two weeks in a row. All of it updates once a week. At home the wastewater level is the highest of the local plants. Elsewhere it's the level most people there are at. New York City uses Westchester plants, since CDC has none in the five boroughs.</p>
+  <p style="color:#666;font-size:12px;margin-top:24px">CDC wastewater viral activity level and epidemic trend (Rt) estimates. Each plant uses the middle of its last three weekly reports, so one odd week up or down doesn't count. A virus also counts as rising when CDC's ensemble forecast has state hospital admissions up 20% or more three weeks out, unless wastewater is very low. It also counts as rising in New York City when NYC Health's ER visits are up two weeks in a row. All of it updates once a week. At home the wastewater level is the highest of the local plants. Elsewhere it's the level most people there are at. New York City uses Westchester plants, since CDC has none in the five boroughs.</p>
 </body></html>`;
 }
 

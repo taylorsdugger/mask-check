@@ -8,7 +8,7 @@ It's not medical advice. Risk is relative, and this is one way to read the CDC n
 
 For each virus it looks at two things:
 
-- **Level.** The CDC wastewater viral activity level at the four local plants (two in Rock Island County, Muscatine, and Davenport). It takes the highest one, but a plant's level only counts once it holds two weeks in a row. Each week uses the lower of that week and the plant's previous report (looking back two weeks in case it skipped one), since the small plants often jump a level or two for one week and drop right back. Mercer County has no plant, so it leans on Rock Island and Davenport.
+- **Level.** The CDC wastewater viral activity level at the four local plants (two in Rock Island County, Muscatine, and Davenport). It takes the highest one, but each plant uses the middle of its last three weekly reports. Plants often jump or dip a level or two for one week and come right back, and the middle of three ignores one odd week either way. A plant with only two reports so far uses the lower one, so a rise still needs two weeks. Mercer County has no plant, so it leans on Rock Island and Davenport.
 - **Trend.** The CDC epidemic trend (Rt) estimate for the local health service area. If CDC didn't estimate it locally (common for RSV), it uses the Illinois and Iowa state estimates. "Growing" and "Likely Growing" count as rising.
 
 - **Forecast.** The CDC forecast hubs' ensemble (COVID, FluSight and RSV), which combines every model submitted that week. It forecasts weekly hospital admissions per state, up to three weeks out. If admissions three weeks out are 20% or more above this week, that counts as rising too, but only once wastewater is above Very Low. The COVID ensemble forecast a rise nearly every week of summer 2026 while wastewater sat at Very Low. States under 10 admissions a week are skipped, since a couple of patients swings the percentage too much. Home uses whichever of Illinois and Iowa is rising faster.
@@ -57,17 +57,21 @@ The first run, Sep 2025 to Oct 2026 at home, turned up two problems:
 - The small plants (Rock Island #482 and #483, Muscatine) jump a level or two for one week and come right back. Taking the highest plant picked up every one of those, so last fall COVID flipped between Low and High week to week. Davenport's plant serves 141k people and is much smoother.
 - The COVID forecast ensemble had Illinois admissions going up 26 to 74% nearly every week from late May to October 2026, while wastewater sat at Very Low. So COVID was on Watch for about 20 weeks straight.
 
-So now a plant's level only counts once it holds two reports, and a forecast rise doesn't count while wastewater is Very Low. Weeks at each level, before and after:
+So now each plant uses the middle of its last three reports, and a forecast rise doesn't count while wastewater is Very Low. (The first try took the lower of two weeks, which stopped one-week spikes but let a one-week dip count right away. Chicago's plants nearly all dipped to Very Low on Oct 10, 2026 and dragged it from High to Low.)
+
+Weeks at each level, before and after:
 
 | | Low | Watch | Elevated | High |
 |---|---|---|---|---|
 | Overall, before | 6 | 20 | 6 | 28 |
-| Overall, after | 31 | 3 | 4 | 22 |
-| COVID, after | 35 | 4 | 7 | 14 |
-| Flu, after | 47 | 1 | 8 | 4 |
-| RSV, after | 41 | 0 | 0 | 19 |
+| Overall, after | 22 | 7 | 6 | 25 |
+| COVID, after | 25 | 8 | 8 | 19 |
+| Flu, after | 45 | 2 | 7 | 6 |
+| RSV, after | 39 | 1 | 0 | 20 |
 
-The cost shows up at the start of the winter wave. Before, flu was on Watch from late November because the forecast had admissions doubling, about four weeks ahead of High. After, flu goes from Low straight to High on Dec 29, and RSV does the same a week later, since wastewater was still Very Low while the forecasts climbed. The live check also has CDC's trend estimate, which should catch a rise like that, but the replay can't show it because CDC doesn't keep past trend estimates. Worth watching how early flu and RSV get flagged this winter.
+Times the overall rating crossed the mask line (into or out of Elevated or High) went from 16 to 6. It still moves between Low and Watch a fair amount, mostly COVID in late summer when Davenport sat right on the line between Very Low and Low.
+
+The cost shows up at the start of the winter wave. Before, flu was on Watch from late November because the forecast had admissions doubling, about four weeks ahead of High. After, flu only gets two weeks of Watch and then sits at Low until it goes to High on Dec 29, and RSV goes from Low straight to High a week later, since wastewater was still Very Low while the forecasts climbed. The live check also has CDC's trend estimate, which should catch a rise like that, but the replay can't show it because CDC doesn't keep past trend estimates. Worth watching how early flu and RSV get flagged this winter.
 
 ## Why it isn't daily
 

@@ -172,11 +172,11 @@ function scoreVirus(
   stateNames: Map<string, string>,
 ): VirusReport {
   const rows = data.wastewater.filter((r) => r.pathogen_target === virus.wastewater && r.site_wval_category);
-  const held = holdTwoWeeks(rows);
+  const steady = steadyLevels(rows);
 
   const levelWeek = rows.reduce<string | null>((max, r) => (!max || r.week_end > max ? r.week_end : max), null);
   const latest = rows.filter((r) => r.week_end === levelWeek);
-  const heldLatest = held.filter((r) => r.week_end === levelWeek);
+  const steadyLatest = steady.filter((r) => r.week_end === levelWeek);
   const sites = latest
     .map((r) => ({
       label: `${r.counties_served} #${r.site.replace("ID:", "")} · ${formatPeople(Number(r.population_served))}`,
@@ -190,11 +190,11 @@ function scoreVirus(
       : aggregate === "highest"
         ? Math.max(...week.map((r) => LEVELS.indexOf(r.site_wval_category!)))
         : typicalRank(week);
-  const levelRank = rankOf(heldLatest);
-  const jumpRank = rankOf(latest);
+  const levelRank = rankOf(steadyLatest);
+  const thisWeekRank = rankOf(latest);
   const level = levelRank === null ? null : LEVELS[levelRank];
 
-  const history = weeklyHistory(held, aggregate);
+  const history = weeklyHistory(steady, aggregate);
 
   const trend = pickTrend(data, virus.rt);
   const forecast = pickForecast(data.forecasts ?? [], virus.id, stateNames);
@@ -236,8 +236,8 @@ function scoreVirus(
     reason: `${virus.name} ${levelText}, ${trendText}${forecastText}`,
     why: [
       explain(level, caution === "cautious" && levelRank === 1, risingBecause),
-      jumpRank !== null && levelRank !== null && jumpRank > levelRank &&
-        `It jumped to ${LEVELS[jumpRank].toLowerCase()} this week, but a jump only counts once it holds two weeks.`,
+      thisWeekRank !== null && levelRank !== null && thisWeekRank !== levelRank &&
+        `This week alone reads ${LEVELS[thisWeekRank].toLowerCase()}, but one week only counts once another week agrees.`,
       forecastUp && !forecastRising &&
         `Hospital admissions are forecast up ${Math.round(forecast!.change * 100)}%, but that doesn't count while wastewater is very low.`,
     ]
@@ -281,18 +281,19 @@ function shareOfPeak(points: WeekValue[]): { week: string; pct: number }[] {
   return points.slice(-10).map((p) => ({ week: p.week, pct: Math.round((p.value / peak) * 100) }));
 }
 
-// A plant's level only counts once it holds two reports in a row, since the
-// small plants often jump a level or two for one week and drop right back.
-// Each week takes the lower of that week and the plant's previous report,
-// looking back two weeks in case it skipped one.
-export function holdTwoWeeks(rows: WastewaterRow[]): WastewaterRow[] {
+// Each plant uses the middle of its last three weekly reports, since the
+// plants often jump or dip a level or two for one week and come right back.
+// With only two reports it takes the lower one, so a rise still needs two.
+export function steadyLevels(rows: WastewaterRow[]): WastewaterRow[] {
   const rank = new Map(rows.map((r) => [`${r.site} ${r.week_end}`, LEVELS.indexOf(r.site_wval_category!)]));
   return rows.map((r) => {
-    const before =
-      rank.get(`${r.site} ${daysBefore(r.week_end, 7)}`) ?? rank.get(`${r.site} ${daysBefore(r.week_end, 14)}`);
-    return before === undefined || before >= rank.get(`${r.site} ${r.week_end}`)!
-      ? r
-      : { ...r, site_wval_category: LEVELS[before] };
+    const recent = [0, 7, 14, 21]
+      .map((back) => rank.get(`${r.site} ${daysBefore(r.week_end, back)}`))
+      .filter((v): v is number => v !== undefined)
+      .slice(0, 3)
+      .sort((a, b) => a - b);
+    const steady = recent.length === 3 ? recent[1] : recent[0];
+    return steady === LEVELS.indexOf(r.site_wval_category!) ? r : { ...r, site_wval_category: LEVELS[steady] };
   });
 }
 
