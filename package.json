@@ -2,18 +2,20 @@
   "name": "mask-check",
   "version": "0.0.0",
   "private": true,
-  "description": "Weekly COVID, flu and RSV risk for Rock Island, Mercer and Muscatine counties, from CDC data, with an email when it changes.",
+  "description": "Daily COVID, flu and RSV risk for the Quad Cities and Muscatine, from CDC data, with a morning email.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "replay": "esbuild scripts/replay.ts --bundle --platform=node --format=esm --outfile=.wrangler/replay.mjs --log-level=warning && node .wrangler/replay.mjs"
   },
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261026.1",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5",
     "wrangler": "^4.153.0"

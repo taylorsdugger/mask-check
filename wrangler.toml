@@ -19,7 +19,7 @@ binding = "STATE"
 id = "3d88b13be04a4527a9bd4b356d22a57e"
 
 [vars]
-EMAIL_FROM = "Mask Check <onboarding@resend.dev>"
+EMAIL_FROM = "Mask Check <mask-check@taylordugger.com>"
 # "normal" or "cautious". Cautious treats a Low wastewater level as Moderate.
 CAUTION = "normal"
 # "true" sends every morning. Otherwise it sends on Mondays and when the
@@ -32,3 +32,10 @@ DASHBOARD_URL = "https://mask-check.taylordugger.com"
 # lands at 7:30 in Chicago sends the email.
 [triggers]
 crons = ["30 12 * * *", "30 13 * * *"]
+
+# Each morning's ratings, so the dashboard can chart the season and the email
+# can say what changed since yesterday. Tables are in migrations/.
+[[d1_databases]]
+binding = "DB"
+database_name = "mask-check"
+database_id = "3d8ae75b-77d7-473a-b872-83c181dab4ec"

@@ -49,6 +49,12 @@ export const OTHER_AREAS: Area[] = [
     level: "typical",
   },
   {
+    id: "iowa-city",
+    name: "Iowa City",
+    counties: [{ state: "Iowa", county: "Johnson", fips: "19103" }],
+    level: "typical",
+  },
+  {
     id: "nyc",
     name: "New York City",
     note: "CDC has no plants in the five boroughs, so the level uses Westchester, just north of the Bronx. ER visits and the citywide wastewater chart come from NYC Health.",

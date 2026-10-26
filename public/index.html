@@ -126,6 +126,18 @@
   .area-viruses .status .dot { width: 10px; height: 10px; }
   .area-more { color: var(--series); font-size: 13px; }
   details.area[open] .area-more { display: none; }
+  .history { margin-top: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; margin: 0 0 10px; }
+  .legend .status { font-weight: 500; }
+  .legend .status .dot { width: 10px; height: 10px; }
+  .strip { position: relative; }
+  .strip-row, .strip-axis { display: grid; grid-template-columns: 56px 1fr; gap: 8px; align-items: center; }
+  .strip-row { margin-bottom: 4px; font-size: 13px; color: var(--ink-2); }
+  .strip-row svg { display: block; width: 100%; height: 18px; border-radius: 3px; background: var(--grid); }
+  .strip-axis { font-size: 11px; color: var(--muted); }
+  .strip-axis .ticks { position: relative; height: 16px; }
+  .strip-axis .ticks span { position: absolute; top: 2px; white-space: nowrap; }
+  .strip .tip { transform: translate(-50%, -120%); }
   .key { margin-top: 20px; }
   .key td { white-space: normal; vertical-align: top; padding: 6px 8px 6px 0; }
   .key td:first-child { white-space: nowrap; }
@@ -141,6 +153,12 @@
   <p class="eyebrow">Quad Cities and Muscatine</p>
   <section class="hero" id="hero"><p class="loading">Loading CDC data…</p></section>
   <section class="grid" id="viruses"></section>
+  <section class="card history" id="history" hidden>
+    <h2>Home over time</h2>
+    <p class="note" id="history-note"></p>
+    <div class="legend"><span class="status"><span class="dot" style="background:var(--good)" aria-hidden="true"></span>Low</span><span class="status"><span class="dot" style="background:var(--warning)" aria-hidden="true"></span>Watch</span><span class="status"><span class="dot" style="background:var(--serious)" aria-hidden="true"></span>Elevated</span><span class="status"><span class="dot" style="background:var(--critical)" aria-hidden="true"></span>High</span></div>
+    <div class="strip" id="strip"></div>
+  </section>
   <h2 class="section-title">Other places</h2>
   <p class="section-sub">Places I travel to. Bigger cities can also be an early sign of what's coming here.</p>
   <section id="areas"></section>
@@ -261,6 +279,7 @@
       ${status(r.threat)}
       <p class="advice">${esc(r.advice)}</p>
       <p class="reason">${esc(r.viruses.map((v) => v.reason).join(" · "))}</p>
+      ${r.changes ? `<p class="reason">Since ${fmtWeek(r.changes.since)}: ${esc(r.changes.home.length ? r.changes.home.join(" ") : "no change here.")}${r.changes.areas.length ? ` ${esc(r.changes.areas.join(" "))}` : ""}</p>` : ""}
       <p class="reason"><a href="#key">What do the levels mean?</a></p>
       ${r.headsUp.length ? `<div class="warnings">Heads up: ${r.headsUp.map(esc).join("<br>")}</div>` : ""}
       ${r.warnings.length ? `<div class="warnings">${r.warnings.map(esc).join("<br>")}</div>` : ""}`;
@@ -282,6 +301,76 @@
 
     document.getElementById("generated").textContent = `Pulled from CDC ${new Date(r.generatedAt).toLocaleString()}.${r.caution === "cautious" ? " Cautious mode is on." : ""}`;
   }
+
+  const DAY = 86_400_000;
+  const STRIP_ROWS = [["all", "Overall"], ["covid", "COVID"], ["flu", "Flu"], ["rsv", "RSV"]];
+
+  // One bar per virus across the season. Replayed weeks fill in before the
+  // daily ratings started, so each cell runs until the next rating.
+  function renderHistory(rows) {
+    if (!rows.length) return;
+    const t = (iso) => Date.parse(iso + "T00:00:00Z");
+    const start = t(rows[0].date);
+    const end = Math.max(t(rows[rows.length - 1].date) + DAY, Date.now());
+    const x = (ms) => ((ms - start) / (end - start)) * 1000;
+    const firstDaily = rows.find((r) => r.source === "daily")?.date;
+
+    const cells = new Map();
+    const bars = STRIP_ROWS.map(([id, name]) => {
+      const mine = rows.filter((r) => r.virus === id);
+      const spans = mine.map((r, i) => {
+        const from = t(r.date);
+        const to = i + 1 < mine.length ? t(mine[i + 1].date) : from + (r.source === "replay" ? 7 : 1) * DAY;
+        return { ...r, x0: x(from), x1: x(Math.min(to, from + 7 * DAY, end)) };
+      });
+      cells.set(id, spans);
+      const marker = firstDaily ? `<line x1="${x(t(firstDaily))}" x2="${x(t(firstDaily))}" y1="0" y2="1" stroke="var(--ink)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>` : "";
+      return `<div class="strip-row"><span>${name}</span><svg viewBox="0 0 1000 1" preserveAspectRatio="none" data-row="${id}" role="img" aria-label="${name} rating over time">
+        ${spans.map((c) => `<rect x="${c.x0}" width="${Math.max(c.x1 - c.x0, 0.5)}" y="0" height="1" fill="var(${STATUS[c.threat]})"/>`).join("")}${marker}</svg></div>`;
+    });
+
+    const months = [];
+    for (let d = new Date(start); d.getTime() < end; d.setUTCMonth(d.getUTCMonth() + 1, 1)) {
+      const first = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+      if (first >= start) months.push(first);
+    }
+    const every = months.length > 8 ? 2 : 1;
+    const ticks = months
+      .filter((_, i) => i % every === 0)
+      .map((ms) => {
+        const d = new Date(ms);
+        const label = d.toLocaleDateString(undefined, { month: "short", ...(d.getUTCMonth() === 0 ? { year: "numeric" } : {}), timeZone: "UTC" });
+        return `<span style="left:${x(ms) / 10}%">${label}</span>`;
+      });
+
+    const strip = document.getElementById("strip");
+    strip.innerHTML = `${bars.join("")}<div class="strip-axis"><span></span><div class="ticks">${ticks.join("")}</div></div><div class="tip"></div>`;
+    document.getElementById("history-note").textContent = firstDaily
+      ? `Before ${fmtWeek(firstDaily)} (the black line) is last winter replayed through the same rules from CDC's past wastewater and forecasts, one rating a week. CDC doesn't keep past trend estimates, so the replay can only count a forecast rise as rising. After the line it's the rating from each morning.`
+      : "Last winter replayed through the same rules from CDC's past wastewater and forecasts, one rating a week. CDC doesn't keep past trend estimates, so the replay can only count a forecast rise as rising.";
+
+    const tip = strip.querySelector(".tip");
+    for (const svg of strip.querySelectorAll("svg[data-row]")) {
+      svg.addEventListener("pointermove", (e) => {
+        const box = svg.getBoundingClientRect(), outer = strip.getBoundingClientRect();
+        const vx = ((e.clientX - box.left) / box.width) * 1000;
+        const c = cells.get(svg.dataset.row).find((c) => vx >= c.x0 && vx < c.x1);
+        if (!c) return void (tip.style.display = "none");
+        const details = [c.level && `wastewater ${c.level.toLowerCase()}`, c.forecast_change !== null && `forecast ${pct(c.forecast_change)}`].filter(Boolean);
+        tip.innerHTML = `${c.source === "replay" ? "Week of " : ""}${fmtWeek(c.date)}: <strong>${esc(c.threat)}</strong>${details.length ? `, ${esc(details.join(", "))}` : ""}${c.source === "replay" ? " (replayed)" : ""}`;
+        tip.style.left = `${Math.min(Math.max(e.clientX - outer.left, 90), outer.width - 90)}px`;
+        tip.style.top = `${box.top - outer.top}px`;
+        tip.style.display = "block";
+      });
+      svg.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+    }
+    document.getElementById("history").hidden = false;
+  }
+
+  fetch("/api/history")
+    .then((res) => (res.ok ? res.json() : []))
+    .then(renderHistory)
+    .catch(() => {});
 
   fetch("/api/report")
     .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))

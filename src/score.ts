@@ -2,6 +2,7 @@ import type { CdcData, WastewaterRow } from "./cdc";
 import { daysBefore } from "./cdc";
 import { HOME, OTHER_AREAS, VIRUSES, type Area, type Virus } from "./config";
 import type { ForecastRow } from "./forecast";
+import type { Changes } from "./history";
 import type { WeekValue } from "./nyc";
 
 export const LEVELS = ["Very Low", "Low", "Moderate", "High", "Very High"];
@@ -84,6 +85,9 @@ export interface Report {
   viruses: VirusReport[];
   areas: AreaReport[];
   headsUp: string[];
+  // What moved since the last morning's ratings. Filled in from history after
+  // the report is built, and null when there's nothing to compare against.
+  changes: Changes | null;
   warnings: string[];
 }
 
@@ -121,6 +125,7 @@ export function buildReport(data: CdcData, today: string, caution = "normal"): R
     viruses: home.viruses,
     areas,
     headsUp: headsUp(home, areas),
+    changes: null,
     warnings,
   };
 }

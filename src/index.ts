@@ -1,9 +1,11 @@
 import { fetchCdcData } from "./cdc";
 import { emailHtml, emailSubject, emailText, sendEmail } from "./email";
+import { changesSince, homeHistory, previousRatings, ratingsFor, saveRatings } from "./history";
 import { buildReport, type Report } from "./score";
 
 interface Env {
   STATE: KVNamespace;
+  DB: D1Database;
   RESEND_API_KEY: string;
   EMAIL_TO: string;
   EMAIL_FROM: string;
@@ -20,7 +22,7 @@ interface LastSent {
 
 // Bump when the Report shape changes, so a stored report from the old shape
 // is never served to the new dashboard.
-const REPORT_KEY = "report-v6";
+const REPORT_KEY = "report-v7";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -30,8 +32,18 @@ const chicago = (part: "hour" | "weekday") =>
     ...(part === "hour" ? { hour: "numeric", hourCycle: "h23" } : { weekday: "short" }),
   }).format(new Date());
 
+const chicagoDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
+
 async function refreshReport(env: Env): Promise<Report> {
   const report = buildReport(await fetchCdcData(today()), today(), env.CAUTION);
+  // History is extra. If D1 has a problem the report and email still go out.
+  try {
+    const date = chicagoDate();
+    report.changes = changesSince(await previousRatings(env.DB, date), report);
+    await saveRatings(env.DB, ratingsFor(report, date));
+  } catch (err) {
+    console.error(err);
+  }
   await env.STATE.put(REPORT_KEY, JSON.stringify(report));
   return report;
 }
@@ -44,6 +56,10 @@ export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname === "/api/report") return Response.json(await storedReport(env));
+    if (pathname === "/api/history") {
+      const since = new Date(Date.now() - 420 * 86_400_000).toISOString().slice(0, 10);
+      return Response.json(await homeHistory(env.DB, since));
+    }
     if (pathname === "/api/email-preview") {
       return new Response(emailHtml(await storedReport(env), env.DASHBOARD_URL), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
