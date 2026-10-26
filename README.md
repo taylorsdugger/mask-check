@@ -33,7 +33,7 @@ Set `CAUTION = "cautious"` in `wrangler.toml` to treat a Low wastewater level as
 Chicago, Des Moines and New York City get the same score, for travel and as a possible early sign for here. They don't change the home level. When a virus is worse in one of them than at home, the email and dashboard show a heads up.
 
 - Big cities have lots of plants, so instead of the worst plant they use the level most people there are at (each plant weighted by the people it serves).
-- New York City uses the Westchester plants, just north of the Bronx. CDC has no plants in the five boroughs, and no Rt estimate for the city.
+- New York City uses the Westchester plants, just north of the Bronx, for its level. CDC has no plants in the five boroughs, and no Rt or ER trends for the city. So NYC also pulls [NYC Health's own data](https://github.com/nychealth/respiratory-illness-data): if ER visits for a virus are up two weeks in a row, that counts as rising. The NYC cards also chart citywide wastewater as a share of the past year's peak. It's raw viral load, not CDC's Very Low to Very High scale, so it doesn't set the level.
 
 Add or change places in `OTHER_AREAS` in `src/config.ts`. Each one is a list of counties with their state and fips code.
 

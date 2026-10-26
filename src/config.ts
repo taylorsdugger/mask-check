@@ -16,6 +16,8 @@ export interface Area {
   // "highest" takes the worst plant. "typical" takes the level most people in
   // the area are at, so one bad neighborhood in a big city doesn't decide it.
   level: "highest" | "typical";
+  // Uses NYC Health's own ER visit and citywide wastewater data.
+  nycHealth?: boolean;
 }
 
 // Mercer County has no plant in the CDC network. Scott County (Davenport) is
@@ -49,9 +51,10 @@ export const OTHER_AREAS: Area[] = [
   {
     id: "nyc",
     name: "New York City",
-    note: "CDC has no plants in the five boroughs, so this uses Westchester, just north of the Bronx.",
+    note: "CDC has no plants in the five boroughs, so the level uses Westchester, just north of the Bronx. ER visits and the citywide wastewater chart come from NYC Health.",
     counties: [{ state: "New York", county: "Westchester", fips: "36119" }],
     level: "typical",
+    nycHealth: true,
   },
 ];
 

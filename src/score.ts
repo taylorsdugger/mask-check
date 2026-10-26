@@ -2,6 +2,7 @@ import type { CdcData, WastewaterRow } from "./cdc";
 import { daysBefore } from "./cdc";
 import { HOME, OTHER_AREAS, VIRUSES, type Area, type Virus } from "./config";
 import type { ForecastRow } from "./forecast";
+import type { WeekValue } from "./nyc";
 
 export const LEVELS = ["Very Low", "Low", "Moderate", "High", "Very High"];
 export const THREATS = ["Low", "Watch", "Elevated", "High"] as const;
@@ -59,6 +60,9 @@ export interface VirusReport {
   trendWeek: string | null;
   forecast: Forecast | null;
   edTrends: { area: string; trend: string }[];
+  // Citywide wastewater as a share of its peak over the past year. Only for
+  // places with their own city data, since it isn't on CDC's scale.
+  cityWastewater: { week: string; pct: number }[] | null;
 }
 
 export interface AreaReport {
@@ -98,6 +102,9 @@ export function buildReport(data: CdcData, today: string, caution = "normal"): R
     }
   }
   if (!data.forecasts) warnings.push("Couldn't load the CDC forecast hubs, so forecasts are left out.");
+  if (OTHER_AREAS.some((a) => a.nycHealth) && !data.nyc) {
+    warnings.push("Couldn't load NYC Health's data, so New York City uses CDC data only.");
+  }
 
   const drivers = home.viruses.filter((v) => v.threat === home.threat);
   const headline =
@@ -145,6 +152,7 @@ function scoreArea(area: Area, data: CdcData, caution: string): AreaReport {
     rt: data.rt.filter((r) => (r.estimate_level === "HSA" ? fips.has(r.county_code!) : states.has(r.state_name))),
     ed: data.ed,
     forecasts: (data.forecasts ?? []).filter((f) => stateNames.has(f.stateFips)),
+    nyc: area.nycHealth ? data.nyc : null,
   };
   const viruses = VIRUSES.map((virus) => scoreVirus(virus, areaData, area.level, caution, stateNames));
   const threat = THREATS[Math.max(...viruses.map((v) => THREATS.indexOf(v.threat)))];
@@ -182,7 +190,10 @@ function scoreVirus(
   const forecast = pickForecast(data.forecasts ?? [], virus.id, stateNames);
   const trendRising = trend !== null && TREND_RANK[trend.category] > 0;
   const forecastRising = forecast !== null && forecast.change >= FORECAST_RISE;
-  const growing = trendRising || forecastRising;
+  const cityEd = data.nyc?.ed[virus.id] ?? [];
+  const cityEdTrend = direction(cityEd);
+  const cityEdRising = cityEdTrend === "Increasing";
+  const growing = trendRising || forecastRising || cityEdRising;
 
   const effectiveRank = caution === "cautious" && levelRank === 1 ? 2 : levelRank;
   const threat = THREATS[threatIndex(effectiveRank, growing)];
@@ -195,6 +206,13 @@ function scoreVirus(
     .filter((r) => r.week_end === data.ed[0]?.week_end && r[virus.ed] && r[virus.ed] !== "Data Unavailable")
     .map((r) => ({ area: r.hsa, trend: r[virus.ed] }))
     .filter((t, i, all) => all.findIndex((o) => o.area === t.area) === i);
+  if (cityEdTrend) edTrends.push({ area: `NYC Health, week of ${shortDate(cityEd[cityEd.length - 1].week)}`, trend: cityEdTrend });
+
+  const risingBecause = [
+    trendRising && `CDC's trend estimate says ${trend!.category.toLowerCase()}`,
+    forecastRising && `hospital admissions are forecast up ${Math.round(forecast!.change * 100)}% by ${shortDate(forecast!.endDate)}`,
+    cityEdRising && "NYC's ER visits are up two weeks in a row",
+  ].filter((r): r is string => Boolean(r));
 
   return {
     id: virus.id,
@@ -202,7 +220,7 @@ function scoreVirus(
     threat,
     advice: ADVICE[threat],
     reason: `${virus.name} ${levelText}, ${trendText}${forecastText}`,
-    why: explain(level, caution === "cautious" && levelRank === 1, trendRising ? trend : null, forecastRising ? forecast : null),
+    why: explain(level, caution === "cautious" && levelRank === 1, risingBecause),
     level,
     levelWeek,
     sites,
@@ -212,28 +230,34 @@ function scoreVirus(
     trendWeek: trend?.week ?? null,
     forecast,
     edTrends,
+    cityWastewater: data.nyc ? shareOfPeak(data.nyc.wastewater[virus.id]) : null,
   };
 }
 
-function explain(
-  level: string | null,
-  cautionBump: boolean,
-  risingTrend: { category: string } | null,
-  risingForecast: Forecast | null,
-): string {
+function explain(level: string | null, cautionBump: boolean, reasons: string[]): string {
   const levelPart = level ? `Wastewater is ${level.toLowerCase()}` : "There's no wastewater data";
   const bump = cautionBump ? " (cautious mode counts that as moderate)" : "";
-  const reasons = [
-    risingTrend && `CDC's trend estimate says ${risingTrend.category.toLowerCase()}`,
-    risingForecast &&
-      `hospital admissions are forecast up ${Math.round(risingForecast.change * 100)}% by ${shortDate(risingForecast.endDate)}`,
-  ].filter(Boolean);
   return reasons.length ? `${levelPart}${bump} and rising. ${capitalize(reasons.join(", and "))}.` : `${levelPart}${bump} and not rising.`;
 }
 
 const capitalize = (s: string) => s[0].toUpperCase() + s.slice(1);
 const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+// Increasing or decreasing means two weeks in a row the same way.
+export function direction(points: WeekValue[]): "Increasing" | "Decreasing" | "No Change" | null {
+  if (points.length < 3) return null;
+  const [a, b, c] = points.slice(-3).map((p) => p.value);
+  if (a < b && b < c) return "Increasing";
+  if (a > b && b > c) return "Decreasing";
+  return "No Change";
+}
+
+function shareOfPeak(points: WeekValue[]): { week: string; pct: number }[] {
+  const peak = Math.max(...points.slice(-52).map((p) => p.value));
+  if (!(peak > 0)) return [];
+  return points.slice(-10).map((p) => ({ week: p.week, pct: Math.round((p.value / peak) * 100) }));
+}
 
 export function threatIndex(levelRank: number | null, growing: boolean): number {
   if (levelRank !== null && levelRank >= 3) return 3;

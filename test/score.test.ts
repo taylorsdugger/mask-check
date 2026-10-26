@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CdcData, WastewaterRow } from "../src/cdc";
-import { buildReport, threatIndex, typicalRank } from "../src/score";
+import type { NycData } from "../src/nyc";
+import { buildReport, direction, threatIndex, typicalRank } from "../src/score";
 
 const PLACES: Record<string, { state: string; county: string; people: string }> = {
   "ID:482": { state: "Illinois", county: "Rock Island", people: "25202" },
@@ -51,6 +52,7 @@ const data = (overrides: Partial<CdcData> = {}): CdcData => ({
   ],
   ed: [],
   forecasts: [],
+  nyc: null,
   ...overrides,
 });
 
@@ -67,6 +69,16 @@ describe("threatIndex", () => {
     expect(threatIndex(2, true)).toBe(3);
     expect(threatIndex(4, false)).toBe(3);
     expect(threatIndex(null, true)).toBe(1);
+  });
+});
+
+describe("direction", () => {
+  const pts = (values: number[]) => values.map((value, i) => ({ week: String(i), value }));
+  it("needs two weeks the same way in a row", () => {
+    expect(direction(pts([1, 2, 3]))).toBe("Increasing");
+    expect(direction(pts([3, 2, 1]))).toBe("Decreasing");
+    expect(direction(pts([1, 3, 2]))).toBe("No Change");
+    expect(direction(pts([1, 2]))).toBeNull();
   });
 });
 
@@ -157,6 +169,32 @@ describe("buildReport", () => {
   it("warns when the forecast hubs can't be reached", () => {
     expect(buildReport(data({ forecasts: null }), "2026-10-26").warnings).toContain(
       "Couldn't load the CDC forecast hubs, so forecasts are left out.",
+    );
+  });
+
+  it("counts NYC's ER visits rising two weeks in a row as rising for NYC only", () => {
+    const weeks = (values: number[]) => values.map((value, i) => ({ week: `2026-10-${String(3 + i * 7).padStart(2, "0")}`, value }));
+    const nyc: NycData = {
+      ed: { covid: weeks([0.56, 0.45, 0.38]), flu: weeks([0.32, 0.4, 0.48]), rsv: weeks([0.03, 0.04, 0.04]) },
+      wastewater: { covid: weeks([40, 20, 10]), flu: weeks([1, 2, 4]), rsv: weeks([5, 5, 5]) },
+    };
+    const report = buildReport(data({ nyc }), "2026-10-26");
+    const nycFlu = report.areas.find((a) => a.id === "nyc")!.viruses.find((v) => v.id === "flu")!;
+    expect(nycFlu.threat).toBe("Watch");
+    expect(nycFlu.why).toBe("There's no wastewater data and rising. NYC's ER visits are up two weeks in a row.");
+    expect(nycFlu.edTrends).toEqual([{ area: "NYC Health, week of Oct 17", trend: "Increasing" }]);
+    expect(nycFlu.cityWastewater).toEqual([
+      { week: "2026-10-03", pct: 25 },
+      { week: "2026-10-10", pct: 50 },
+      { week: "2026-10-17", pct: 100 },
+    ]);
+    expect(report.viruses.find((v) => v.id === "flu")!.cityWastewater).toBeNull();
+    expect(report.areas.find((a) => a.id === "chicago")!.viruses[0].cityWastewater).toBeNull();
+  });
+
+  it("warns when NYC Health can't be reached", () => {
+    expect(buildReport(data(), "2026-10-26").warnings).toContain(
+      "Couldn't load NYC Health's data, so New York City uses CDC data only.",
     );
   });
 

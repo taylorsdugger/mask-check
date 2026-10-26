@@ -1,5 +1,6 @@
 import { ALL_AREAS, HOME } from "./config";
 import { fetchForecasts, type ForecastRow } from "./forecast";
+import { fetchNyc, type NycData } from "./nyc";
 
 // All three are Socrata datasets on data.cdc.gov, updated once a week.
 // Wastewater viral activity level, per treatment plant, per week.
@@ -44,6 +45,8 @@ export interface CdcData {
   ed: EdRow[];
   // null when the forecast hubs couldn't be reached. The rest still works.
   forecasts: ForecastRow[] | null;
+  // null when NYC Health couldn't be reached, or no area uses it.
+  nyc: NycData | null;
 }
 
 const quoted = (values: string[]) => values.map((v) => `'${v}'`).join(",");
@@ -71,7 +74,7 @@ export async function fetchCdcData(today: string): Promise<CdcData> {
   const servesCounty = counties
     .map((c) => `(state_territory = '${c.state}' AND counties_served like '%${c.county}%')`)
     .join(" OR ");
-  const [wastewater, rt, ed, forecasts] = await Promise.all([
+  const [wastewater, rt, ed, forecasts, nyc] = await Promise.all([
     query<WastewaterRow>(WASTEWATER, {
       $select: "week_end,site,state_territory,counties_served,population_served,pathogen_target,site_wval,site_wval_category",
       $where: `(${servesCounty}) AND week_end >= '${since}'`,
@@ -95,8 +98,14 @@ export async function fetchCdcData(today: string): Promise<CdcData> {
       console.error(err);
       return null;
     }),
+    ALL_AREAS.some((a) => a.nycHealth)
+      ? fetchNyc().catch((err) => {
+          console.error(err);
+          return null;
+        })
+      : null,
   ]);
-  return { wastewater, rt, ed, forecasts };
+  return { wastewater, rt, ed, forecasts, nyc };
 }
 
 export function daysBefore(isoDate: string, days: number): string {
