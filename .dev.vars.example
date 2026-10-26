@@ -1,0 +1,10 @@
+# Copy to .dev.vars for `npm run dev`. That file is gitignored.
+# For the deployed Worker, set each one as a secret:
+#   npx wrangler secret put RESEND_API_KEY
+#   npx wrangler secret put EMAIL_TO
+
+RESEND_API_KEY=""
+
+# Comma separated. With Resend's shared onboarding@resend.dev sender, this has
+# to be the address your Resend account signed up with.
+EMAIL_TO=""

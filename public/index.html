@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mask Check</title>
+<style>
+  :root {
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.1);
+    --series: #2a78d6;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.1);
+      --series: #3987e5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 48px; }
+  .eyebrow { color: var(--ink-2); font-size: 13px; margin: 0; }
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 12px 0 20px;
+  }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; }
+  .status .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .hero .status { font-size: 28px; }
+  .hero .status .dot { width: 18px; height: 18px; }
+  .advice { font-size: 20px; margin: 6px 0 4px; }
+  .reason { color: var(--ink-2); margin: 0; }
+  .warnings {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 0;
+  }
+  .card h2 { font-size: 17px; margin: 0 0 4px; display: flex; justify-content: space-between; align-items: center; }
+  .card .advice { font-size: 14px; margin: 0 0 12px; color: var(--ink-2); }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 12px; font-size: 14px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+  .chart { position: relative; }
+  .chart-title { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    transform: translate(-50%, -110%);
+    display: none;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px 0; }
+  td { padding: 4px 0; border-top: 1px solid var(--grid); }
+  td + td { padding-left: 8px; white-space: nowrap; }
+  td.num { text-align: right; }
+  .section-title { font-size: 17px; margin: 28px 0 4px; }
+  .section-sub { color: var(--ink-2); font-size: 13px; margin: 0 0 12px; }
+  .area-list { list-style: none; margin: 0; padding: 0; }
+  .area-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid var(--grid); }
+  .area-list li:first-child { border-top: 0; }
+  .area-list .sub { color: var(--muted); font-size: 12px; }
+  .area-list .status { font-size: 14px; flex: none; }
+  .note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+  footer a { color: var(--ink-2); }
+  .loading { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Rock Island, Mercer and Muscatine counties</p>
+  <section class="hero" id="hero"><p class="loading">Loading CDC data…</p></section>
+  <section class="grid" id="viruses"></section>
+  <h2 class="section-title">Other places</h2>
+  <p class="section-sub">Places I travel to. Bigger cities can also be an early sign of what's coming here.</p>
+  <section class="grid" id="areas"></section>
+  <footer>
+    <p>Risk combines the CDC wastewater viral activity level (at home, the highest of the four local plants; elsewhere, the level most people are at) with the CDC epidemic trend estimate for the local health service area. It also counts as rising when CDC's ensemble forecast has state hospital admissions up 20% or more three weeks out. All of it updates once a week. Mercer County has no plant of its own, so it leans on Rock Island and Davenport.</p>
+    <p>Sources: <a href="https://www.cdc.gov/nwss/rv/index.html">CDC wastewater</a>, <a href="https://www.cdc.gov/cfa-modeling-and-forecasting/rt-estimates/index.html">CDC Rt estimates</a>, <a href="https://www.cdc.gov/covid/php/surveillance/index.html">CDC ED visits</a>, <a href="https://www.cdc.gov/cfa-modeling-and-forecasting/covid19-data-vis/index.html">CDC forecasts</a>. Not medical advice.</p>
+    <p id="generated"></p>
+  </footer>
+</main>
+<script>
+  const STATUS = { Low: "--good", Watch: "--warning", Elevated: "--serious", High: "--critical" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const status = (threat) =>
+    `<span class="status"><span class="dot" style="background:var(${STATUS[threat]})" aria-hidden="true"></span>${esc(threat)}</span>`;
+  const fmtWeek = (iso) => new Date(iso + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+
+  const pct = (change) => `${change >= 0 ? "up" : "down"} ${Math.abs(Math.round(change * 100))}%`;
+  const forecastText = (f) =>
+    f
+      ? `${pct(f.change)[0].toUpperCase()}${pct(f.change).slice(1)} by ${fmtWeek(f.endDate)} <span style="color:var(--muted)">(${esc(f.state)} hospital admissions, ${f.from} → ${f.to} a week)</span>`
+      : "No forecast";
+
+  function chart(history) {
+    if (history.length < 2) return "";
+    const w = 260, h = 110, pad = { t: 8, r: 8, b: 20, l: 28 };
+    const max = Math.max(4, ...history.map((p) => p.wval));
+    const x = (i) => pad.l + (i * (w - pad.l - pad.r)) / (history.length - 1);
+    const y = (v) => h - pad.b - (v / max) * (h - pad.t - pad.b);
+    const ticks = [0, Math.round(max / 2), Math.round(max)];
+    const path = history.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.wval).toFixed(1)}`).join("");
+    const last = history[history.length - 1];
+    return `
+      <div class="chart">
+        <p class="chart-title">Wastewater level, highest local plant, last ${history.length} weeks</p>
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Weekly wastewater level">
+          ${ticks.map((t) => `<line x1="${pad.l}" x2="${w - pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+            <text x="${pad.l - 6}" y="${y(t) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${t}</text>`).join("")}
+          <text x="${pad.l}" y="${h - 4}" font-size="10" fill="var(--muted)">${fmtWeek(history[0].week)}</text>
+          <text x="${w - pad.r}" y="${h - 4}" text-anchor="end" font-size="10" fill="var(--muted)">${fmtWeek(last.week)}</text>
+          <path d="${path}" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+          <circle cx="${x(history.length - 1)}" cy="${y(last.wval)}" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>
+          <line class="cross" y1="${pad.t}" y2="${h - pad.b}" stroke="var(--axis)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"/>
+          <circle class="hover" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2" style="display:none"/>
+          <rect class="hit" x="${pad.l}" y="0" width="${w - pad.l - pad.r}" height="${h}" fill="transparent"/>
+        </svg>
+        <div class="tip"></div>
+      </div>`;
+  }
+
+  function wireChart(el, history) {
+    const svg = el.querySelector("svg");
+    if (!svg) return;
+    const tip = el.querySelector(".tip"), cross = svg.querySelector(".cross"), dot = svg.querySelector(".hover");
+    const w = 260, h = 110, pad = { t: 8, r: 8, b: 20, l: 28 };
+    const max = Math.max(4, ...history.map((p) => p.wval));
+    const x = (i) => pad.l + (i * (w - pad.l - pad.r)) / (history.length - 1);
+    const y = (v) => h - pad.b - (v / max) * (h - pad.t - pad.b);
+    svg.addEventListener("pointermove", (e) => {
+      const box = svg.getBoundingClientRect();
+      const vx = ((e.clientX - box.left) / box.width) * w;
+      const i = Math.max(0, Math.min(history.length - 1, Math.round(((vx - pad.l) / (w - pad.l - pad.r)) * (history.length - 1))));
+      const p = history[i];
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.style.display = "";
+      dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.wval)); dot.style.display = "";
+      tip.innerHTML = `Week of ${fmtWeek(p.week)}: <strong>${p.wval.toFixed(1)}</strong>`;
+      tip.style.left = `${(x(i) / w) * box.width}px`;
+      tip.style.top = `${(y(p.wval) / h) * box.height + 18}px`;
+      tip.style.display = "block";
+    });
+    svg.addEventListener("pointerleave", () => { tip.style.display = cross.style.display = dot.style.display = "none"; });
+  }
+
+  function render(r) {
+    document.getElementById("hero").innerHTML = `
+      ${status(r.threat)}
+      <p class="advice">${esc(r.advice)}</p>
+      <p class="reason">${esc(r.viruses.map((v) => v.reason).join(" · "))}</p>
+      ${r.headsUp.length ? `<div class="warnings">Heads up: ${r.headsUp.map(esc).join("<br>")}</div>` : ""}
+      ${r.warnings.length ? `<div class="warnings">${r.warnings.map(esc).join("<br>")}</div>` : ""}`;
+
+    document.getElementById("areas").innerHTML = r.areas.map((a) => `
+      <article class="card">
+        <h2>${esc(a.name)} ${status(a.threat)}</h2>
+        ${a.note ? `<p class="note">${esc(a.note)}</p>` : ""}
+        <ul class="area-list">
+          ${a.viruses.map((v) => `
+            <li>
+              <div>${esc(v.name)}<div class="sub">Wastewater ${esc((v.level ?? "no data").toLowerCase())} · ${esc((v.trend ?? "trend unknown").toLowerCase())}${v.forecast ? ` · forecast ${pct(v.forecast.change)}` : ""}</div></div>
+              ${status(v.threat)}
+            </li>`).join("")}
+        </ul>
+      </article>`).join("");
+
+    const grid = document.getElementById("viruses");
+    grid.innerHTML = r.viruses.map((v) => `
+      <article class="card" id="card-${v.id}">
+        <h2>${esc(v.name)} ${status(v.threat)}</h2>
+        <p class="advice">${esc(v.advice)}</p>
+        <dl>
+          <dt>Wastewater</dt><dd>${esc(v.level ?? "No data")}${v.levelWeek ? ` <span style="color:var(--muted)">(week of ${fmtWeek(v.levelWeek)})</span>` : ""}</dd>
+          <dt>Trend</dt><dd>${esc(v.trend ?? "Unknown")}${v.trendArea ? ` <span style="color:var(--muted)">(${esc(v.trendArea)})</span>` : ""}</dd>
+          <dt>Forecast</dt><dd>${forecastText(v.forecast)}</dd>
+          <dt>ER visits</dt><dd>${v.edTrends.length ? v.edTrends.map((t) => esc(t.trend)).join(", ") : "No data"}</dd>
+        </dl>
+        ${chart(v.history)}
+        <table>
+          <tr><th>Plant</th><th>Level</th><th class="num">Value</th></tr>
+          ${v.sites.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.category)}</td><td class="num">${s.wval ?? "–"}</td></tr>`).join("")}
+        </table>
+      </article>`).join("");
+    for (const v of r.viruses) wireChart(document.getElementById(`card-${v.id}`), v.history);
+
+    document.getElementById("generated").textContent = `Pulled from CDC ${new Date(r.generatedAt).toLocaleString()}.${r.caution === "cautious" ? " Cautious mode is on." : ""}`;
+  }
+
+  fetch("/api/report")
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+    .then(render)
+    .catch((err) => {
+      document.getElementById("hero").innerHTML = `<p>Couldn't load CDC data right now. ${esc(err.message)}</p>`;
+    });
+</script>
+</body>
+</html>

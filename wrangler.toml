@@ -1,0 +1,34 @@
+name = "mask-check"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# public/ is the dashboard. Anything that isn't a file there (like /api/report)
+# falls through to the Worker.
+[assets]
+directory = "./public"
+
+[observability]
+enabled = true
+
+# Holds the latest report, so the dashboard doesn't wait on CDC's slow api,
+# and the last threat level that was emailed. Create it once with
+#   npx wrangler kv namespace create STATE
+# and paste the id here. Local dev works without it.
+[[kv_namespaces]]
+binding = "STATE"
+id = "3d88b13be04a4527a9bd4b356d22a57e"
+
+[vars]
+EMAIL_FROM = "Mask Check <onboarding@resend.dev>"
+# "normal" or "cautious". Cautious treats a Low wastewater level as Moderate.
+CAUTION = "normal"
+# "true" sends every morning. Otherwise it sends on Mondays and when the
+# level changes.
+SEND_EVERY_DAY = "true"
+DASHBOARD_URL = "https://mask-check.taylordugger.com"
+
+# Cron runs in UTC. 12:30 is 7:30am Central in daylight time and 13:30 is
+# 7:30am in standard time. Both runs refresh the report, and only the one that
+# lands at 7:30 in Chicago sends the email.
+[triggers]
+crons = ["30 12 * * *", "30 13 * * *"]
