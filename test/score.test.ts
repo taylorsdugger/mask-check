@@ -102,6 +102,11 @@ describe("buildReport", () => {
     expect(rsv.trendArea).toBe("Illinois");
   });
 
+  it("labels plants by place name when the county has one", () => {
+    const covid = buildReport(data(), "2026-10-26").viruses.find((v) => v.id === "covid")!;
+    expect(covid.sites.map((s) => s.label)).toEqual(["Davenport #2212 · 141k people", "Rock Island #482 · 25k people"]);
+  });
+
   it("scores other areas on their own plants and trends", () => {
     const report = buildReport(data(), "2026-10-26");
     const chicago = report.areas.find((a) => a.id === "chicago")!;

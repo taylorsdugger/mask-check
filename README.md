@@ -1,6 +1,6 @@
 # Mask Check
 
-A small Cloudflare Worker that checks CDC data for Rock Island, Mercer and Muscatine counties and tells me if COVID, flu or RSV is high or climbing. It has a dashboard page and sends an email through Resend.
+A small Cloudflare Worker that checks CDC data for the Quad Cities and Muscatine (Rock Island, Mercer, Scott and Muscatine counties) and tells me if COVID, flu or RSV is high or climbing. It has a dashboard page and sends an email through Resend.
 
 It's not medical advice. Risk is relative, and this is one way to read the CDC numbers.
 

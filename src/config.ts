@@ -2,6 +2,8 @@ export interface County {
   state: string;
   county: string;
   fips: string;
+  // Shown for this county's plants instead of the county name.
+  label?: string;
 }
 
 export interface Area {
@@ -21,12 +23,12 @@ export interface Area {
 // area, so it fills the gap.
 export const HOME: Area = {
   id: "home",
-  name: "Rock Island, Mercer and Muscatine counties",
+  name: "Quad Cities and Muscatine",
   counties: [
     { state: "Illinois", county: "Rock Island", fips: "17161" },
     { state: "Illinois", county: "Mercer", fips: "17131" },
     { state: "Iowa", county: "Muscatine", fips: "19139" },
-    { state: "Iowa", county: "Scott", fips: "19163" },
+    { state: "Iowa", county: "Scott", fips: "19163", label: "Davenport" },
   ],
   level: "highest",
 };

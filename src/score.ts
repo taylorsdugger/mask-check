@@ -137,9 +137,11 @@ function scoreArea(area: Area, data: CdcData, caution: string): AreaReport {
   const fips = new Set(area.counties.map((c) => c.fips));
   const stateNames = new Map(area.counties.map((c) => [c.fips.slice(0, 2), c.state]));
   const areaData: CdcData = {
-    wastewater: data.wastewater.filter((r) =>
-      area.counties.some((c) => r.state_territory === c.state && r.counties_served.includes(c.county)),
-    ),
+    wastewater: data.wastewater.flatMap((r) => {
+      const county = area.counties.find((c) => r.state_territory === c.state && r.counties_served.includes(c.county));
+      if (!county) return [];
+      return [county.label ? { ...r, counties_served: county.label } : r];
+    }),
     rt: data.rt.filter((r) => (r.estimate_level === "HSA" ? fips.has(r.county_code!) : states.has(r.state_name))),
     ed: data.ed,
     forecasts: (data.forecasts ?? []).filter((f) => stateNames.has(f.stateFips)),

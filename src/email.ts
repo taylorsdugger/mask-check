@@ -1,3 +1,4 @@
+import { HOME } from "./config";
 import type { Forecast, Report } from "./score";
 
 const COLORS: Record<string, string> = {
@@ -56,7 +57,7 @@ export function emailHtml(report: Report, dashboardUrl?: string): string {
 
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:640px;margin:0 auto;padding:16px">
-  <p style="margin:0;color:#666;font-size:13px">Rock Island, Mercer and Muscatine counties</p>
+  <p style="margin:0;color:#666;font-size:13px">${HOME.name}</p>
   <h1 style="margin:4px 0 8px;font-size:24px;color:${COLORS[report.threat]}">${report.threat}</h1>
   <p style="font-size:18px;margin:0 0 16px">${escape(report.advice)}</p>
   ${headsUp}
