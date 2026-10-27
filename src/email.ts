@@ -44,7 +44,13 @@ function changeLines(report: Report): string[] {
 
 export function emailSubject(report: Report): string {
   const c = report.changes;
-  const suffix = !c ? "" : c.home.length ? ", changed since yesterday" : ", same as yesterday";
+  const suffix = !c
+    ? ""
+    : c.home.length
+      ? ", changed since yesterday"
+      : c.areas.length
+        ? ", other places changed"
+        : ", same as yesterday";
   return `Mask check: ${report.headline}${suffix}`;
 }
 

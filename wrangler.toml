@@ -22,16 +22,17 @@ id = "3d88b13be04a4527a9bd4b356d22a57e"
 EMAIL_FROM = "Mask Check <mask-check@taylordugger.com>"
 # "normal" or "cautious". Cautious treats a Low wastewater level as Moderate.
 CAUTION = "normal"
-# "true" sends every morning. Otherwise it sends on Mondays and when the
-# level changes.
-SEND_EVERY_DAY = "true"
+# "true" sends every morning. Otherwise mornings only send when a rating
+# changed since the last email, plus the weekly Friday email.
+SEND_EVERY_DAY = "false"
 DASHBOARD_URL = "https://mask-check.taylordugger.com"
 
-# Cron runs in UTC. 12:30 is 7:30am Central in daylight time and 13:30 is
-# 7:30am in standard time. Both runs refresh the report, and only the one that
-# lands at 7:30 in Chicago sends the email.
+# Cron runs in UTC, so each send time has a daylight and a standard time
+# trigger and only the one that lands on Chicago's hour sends. 12:30/13:30 is
+# 7:30am Central. 17:30/18:30 on Fridays is 12:30pm, after CDC's wastewater
+# update, which lands around 10am Central.
 [triggers]
-crons = ["30 12 * * *", "30 13 * * *"]
+crons = ["30 12 * * *", "30 13 * * *", "30 17 * * 5", "30 18 * * 5"]
 
 # Each morning's ratings, so the dashboard can chart the season and the email
 # can say what changed since yesterday. Tables are in migrations/.

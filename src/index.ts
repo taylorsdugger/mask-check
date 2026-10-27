@@ -1,6 +1,14 @@
 import { fetchCdcData } from "./cdc";
 import { emailHtml, emailSubject, emailText, sendEmail } from "./email";
-import { changesSince, homeHistory, previousRatings, ratingsFor, saveRatings } from "./history";
+import {
+  changesSince,
+  homeHistory,
+  previousRatings,
+  ratingsFor,
+  saveRatings,
+  threatsByPlace,
+  threatsChanged,
+} from "./history";
 import { buildReport, type Report } from "./score";
 
 interface Env {
@@ -16,8 +24,8 @@ interface Env {
 }
 
 interface LastSent {
-  threat: string;
   date: string;
+  threats?: Record<string, string>;
 }
 
 // Bump when the Report shape changes, so a stored report from the old shape
@@ -69,7 +77,9 @@ export default {
   },
 
   async scheduled(_controller, env): Promise<void> {
-    const isSendTime = Number(chicago("hour")) === 7 || env.FORCE_SEND === "true";
+    const hour = Number(chicago("hour"));
+    const isWeekly = chicago("weekday") === "Fri" && hour === 12;
+    const isSendTime = hour === 7 || isWeekly || env.FORCE_SEND === "true";
 
     let r: Report;
     try {
@@ -86,10 +96,11 @@ export default {
     if (!isSendTime) return;
 
     const last = await env.STATE.get<LastSent>("last-sent", "json");
-    const changed = last?.threat !== r.threat;
-    if (!changed && chicago("weekday") !== "Mon" && env.SEND_EVERY_DAY !== "true") return;
+    const threats = threatsByPlace(ratingsFor(r, chicagoDate()));
+    const changed = threatsChanged(last?.threats, threats);
+    if (!changed && !isWeekly && env.SEND_EVERY_DAY !== "true" && env.FORCE_SEND !== "true") return;
 
     await sendEmail(env, emailSubject(r), emailHtml(r, env.DASHBOARD_URL), emailText(r, env.DASHBOARD_URL));
-    await env.STATE.put("last-sent", JSON.stringify({ threat: r.threat, date: today() } satisfies LastSent));
+    await env.STATE.put("last-sent", JSON.stringify({ date: today(), threats } satisfies LastSent));
   },
 } satisfies ExportedHandler<Env>;

@@ -56,6 +56,14 @@ export function changesSince(previous: Rating[], report: Report): Changes | null
   return { since: previous[0].date, home, areas };
 }
 
+export const threatsByPlace = (ratings: Rating[]): Record<string, string> =>
+  Object.fromEntries(ratings.map((r) => [`${r.area}/${r.virus}`, r.threat]));
+
+export function threatsChanged(before: Record<string, string> | undefined, now: Record<string, string>): boolean {
+  if (!before) return true;
+  return Object.entries(now).some(([key, threat]) => before[key] !== threat);
+}
+
 export async function previousRatings(db: D1Database, date: string): Promise<Rating[]> {
   const { results } = await db
     .prepare(

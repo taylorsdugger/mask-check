@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { changesSince, ratingsFor, type Rating } from "../src/history";
+import { changesSince, ratingsFor, threatsByPlace, threatsChanged, type Rating } from "../src/history";
 import type { Report, VirusReport } from "../src/score";
 
 const virus = (id: VirusReport["id"], name: string, threat: VirusReport["threat"]) =>
@@ -55,5 +55,21 @@ describe("changesSince", () => {
   it("skips places that weren't rated the day before", () => {
     const changes = changesSince([rating("home", "flu", "Watch")], report([virus("flu", "Flu", "Watch")], [virus("flu", "Flu", "High")]));
     expect(changes).toEqual({ since: "2026-10-25", home: [], areas: [] });
+  });
+});
+
+describe("threatsChanged", () => {
+  const now = threatsByPlace([rating("home", "all", "Watch"), rating("chicago", "flu", "High")]);
+
+  it("is true with no earlier email to compare against", () => {
+    expect(threatsChanged(undefined, now)).toBe(true);
+  });
+
+  it("is false when every rating matches the last email", () => {
+    expect(threatsChanged({ "home/all": "Watch", "chicago/flu": "High" }, now)).toBe(false);
+  });
+
+  it("is true when any place moved, not only home", () => {
+    expect(threatsChanged({ "home/all": "Watch", "chicago/flu": "Elevated" }, now)).toBe(true);
   });
 });

@@ -39,7 +39,7 @@ Add or change places in `OTHER_AREAS` in `src/config.ts`. Each one is a list of 
 
 ## History and what changed
 
-Every refresh saves that morning's rating for each place and virus to D1 (`ratings` table, see `migrations/`). The email and dashboard compare against the last morning and say what moved, like "Flu went Low → Watch" plus the reason. The subject line ends with "same as yesterday" or "changed since yesterday", so most mornings you can skip the email.
+Every refresh saves that morning's rating for each place and virus to D1 (`ratings` table, see `migrations/`). The email and dashboard compare against the last morning and say what moved, like "Flu went Low → Watch" plus the reason. The subject line ends with "changed since yesterday" when home moved, "other places changed" when only the other places did, or "same as yesterday" on a Friday email with nothing new.
 
 The dashboard's "Home over time" strip charts those ratings. Before the daily ratings start it shows a replay of last winter.
 
@@ -77,9 +77,11 @@ The cost shows up at the start of the winter wave. Before, flu was on Watch from
 
 All of the local CDC data updates once a week. Wastewater and Rt land on Friday, and ER visits land midweek. The plants sample two or three times a week, but CDC only publishes weekly, and about a week behind.
 
-The Worker still emails every morning at 7:30 Central. Cron runs in UTC, so there are two triggers (12:30 and 13:30 UTC) and only the one that lands at 7:30 in Chicago sends. Both runs refresh the report.
+So the Worker checks every morning at 7:30 Central, but only emails when a rating for any place or virus changed since the last email. And it sends one every Friday at 12:30pm, after CDC's wastewater and Rt update. That update landed at about 10am Central the week I checked, so if CDC runs late the Friday email has last week's data and the change shows up the next morning.
 
-Set `SEND_EVERY_DAY = "false"` to only get an email on Mondays and on mornings the overall level changes.
+Cron runs in UTC, so each send time has two triggers (one for daylight time, one for standard) and only the one that lands on the right hour in Chicago sends. Every run refreshes the report.
+
+Set `SEND_EVERY_DAY = "true"` to get an email every morning.
 
 CDC's api is slow, usually 3 to 16 seconds per query and sometimes it hangs. So the cron saves the report to KV and the dashboard reads that copy. If CDC is down at send time, the email goes out with the last saved report and a warning at the top. The dashboard and email also warn when the data is more than two weeks old.
 
